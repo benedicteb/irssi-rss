@@ -43,7 +43,7 @@ sub _parse_rss {
 				delete $$rssobject{lc($feedtag)} if exists $$rssobject{lc($feedtag)};
 				while ($xml =~ /<(?:entry|item)[^>]*>(.*?)<\/(?:entry|item)>/isg) {
 					my $item = $1;
-					my ($link, $title);
+					my ($link, $title, $published, $updated);
 					if ($item =~ /<title[^>]*>(.*?)<\/title>/i) {
 						$title = $1;
 						$title =~ s/&#(x[0-9a-fA-F]+|[0-9]+);/chr($1)/eg;
@@ -63,8 +63,16 @@ sub _parse_rss {
 						while ($link =~ /&amp;/i) { $link =~ s/&amp;/\&/gi }
 					}
 
+					if ($item =~ /<updated[^>]*>(.*?)<\/updated>/i) {
+						$updated = $1;
+					}
+
+					if ($item =~ /<published[^>]*>(.*?)<\/published>/i) {
+						$published = $1;
+					}
+
 					if ($link and $title) {
-						push @{$$rssobject{lc($feedtag)}}, [ $link, $title ];
+						push @{$$rssobject{lc($feedtag)}}, [ $link, $title, $published, $updated ];
 					}
 				}
 			}
@@ -108,8 +116,13 @@ sub _rss_check {
 		next if (defined $tag and $tag !~ /$feedtag/i);
 		my $item_count = scalar(@{$$rssobject{lc($feedtag)}});
 		for (my $itemno = ($item_count - 1); $itemno >= 0; $itemno--) {
-			my ($url, $title) = ($$rssobject{lc($feedtag)}->[$itemno][0], $$rssobject{lc($feedtag)}->[$itemno][1]);
-			my $rsstag = md5_hex(encode_utf8($url."-".$title));
+			my ($url, $title, $published, $updated) =
+			($$rssobject{lc($feedtag)}->[$itemno][0],
+				$$rssobject{lc($feedtag)}->[$itemno][1],
+				$$rssobject{lc($feedtag)}->[$itemno][2],
+				$$rssobject{lc($feedtag)}->[$itemno][3]);
+
+			my $rsstag = md5_hex(encode_utf8($url."-".$title.$updated));
 			if ( (not exists $$statehash{$rsstag}) || ($show_all)) {
 				announce($feedtag, $itemno, $url, $title);
 				autopubannounce($feedtag, $url, $title);
@@ -127,8 +140,13 @@ sub _rss_init {
 	foreach my $feedtag (keys %$rssobject) {
 		my $item_count = scalar(@{$$rssobject{lc($feedtag)}});
 		for (my $itemno = ($item_count - 1); $itemno >= 0; $itemno--) {
-			my ($url, $title) = ($$rssobject{lc($feedtag)}->[$itemno][0], $$rssobject{lc($feedtag)}->[$itemno][1]);
-			my $rsstag = md5_hex(encode_utf8($url."-".$title));
+			my ($url, $title, $published, $updated) =
+			($$rssobject{lc($feedtag)}->[$itemno][0],
+				$$rssobject{lc($feedtag)}->[$itemno][1],
+				$$rssobject{lc($feedtag)}->[$itemno][2],
+				$$rssobject{lc($feedtag)}->[$itemno][3]);
+
+			my $rsstag = md5_hex(encode_utf8($url."-".$title.$updated));
 			$$statehash{$rsstag}++;
 		}
 	}
